@@ -1,0 +1,11 @@
+source https://www.nuget.org/api/v2
+
+nuget FSharp.Core
+nuget Microsoft.Extensions.Logging
+nuget Microsoft.Orleans.Server
+nuget Microsoft.Orleans.OrleansCodeGenerator
+nuget Microsoft.Orleans.Core.Abstractions
+nuget Microsoft.Orleans.Client
+nuget TaskBuilder.fs
+nuget Giraffe
+nuget Microsoft.AspNetCore.App

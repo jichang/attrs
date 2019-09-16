@@ -1,0 +1,7 @@
+FSharp.Core
+TaskBuilder.fs
+Microsoft.Extensions.Logging
+Microsoft.Orleans.Server
+Microsoft.Orleans.OrleansCodeGenerator
+Microsoft.Orleans.Core.Abstractions
+Microsoft.Orleans.Client
