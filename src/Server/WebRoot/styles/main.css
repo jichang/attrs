@@ -1,0 +1,65 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+table {
+  width: 100%;
+
+  border-collapse: collapse;
+}
+
+tbody tr:nth-child(odd) {
+  background-color: #fcfcfc;
+}
+
+tbody tr:nth-child(even) {
+  background-color: white;
+}
+
+td,
+th {
+  padding: 1rem;
+  border: 1px solid #f0f0f0;
+}
+
+.container {
+  margin: 0 auto;
+
+  width: 100%;
+  max-width: 64rem;
+}
+
+.flex__box {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+}
+
+.flex__item {
+  flex: 1;
+}
+
+.form--signin {
+  padding: 5rem 0;
+}
+
+.text-align--center {
+  text-align: center;
+}
+
+.text-align--left {
+  text-align: left;
+}
+
+.text-align--right {
+  text-align: right;
+}
