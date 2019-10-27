@@ -2,7 +2,6 @@
 
 open System
 open Orleans
-open Orleans.Runtime.Configuration
 open Orleans.Hosting
 open System.Threading.Tasks
 open FSharp.Control.Tasks.V2

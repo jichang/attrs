@@ -1,7 +1,7 @@
-FSharp.Core
-Giraffe
-Microsoft.AspNetCore.App
-Microsoft.AspNetCore.StaticFiles
-Microsoft.AspNetCore.Authentication.JwtBearer
-Http.fs
-Thoth.Json.Net
+group Server
+    FSharp.Core
+    Giraffe
+    Microsoft.AspNetCore.StaticFiles
+    Microsoft.AspNetCore.Authentication.JwtBearer
+    Http.fs
+    Thoth.Json.Net

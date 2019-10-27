@@ -134,6 +134,11 @@ module Handler =
     let app (appId: int64) : HttpHandler =
         fun (next : HttpFunc) (ctx : HttpContext) ->
             task {
+                let openIdStr = ctx.Session.GetString "open_id"
+                let clusterClient = ctx.GetService<IClusterClient>()
+                let openId = Guid.Parse (openIdStr)
+                let appGrain = clusterClient.GetGrain<Host.IAppGrain>(openId, appId.ToString())
+                let! users = appGrain.QueryUsers ()
                 return! redirectTo false "/code" next ctx
             }
 

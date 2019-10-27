@@ -1,16 +1,20 @@
-source https://www.nuget.org/api/v2
+group Engine
+    source https://www.nuget.org/api/v2
+    nuget FSharp.Core
+    nuget TaskBuilder.fs
+    nuget Microsoft.Extensions.Logging
+    nuget Microsoft.Orleans.Server
+    nuget Microsoft.Orleans.OrleansCodeGenerator
+    nuget Microsoft.Orleans.Core.Abstractions
+    nuget Microsoft.Orleans.Client
 
-nuget FSharp.Core
-nuget Microsoft.Extensions.Logging
-nuget Microsoft.Orleans.Server
-nuget Microsoft.Orleans.OrleansCodeGenerator
-nuget Microsoft.Orleans.Core.Abstractions
-nuget Microsoft.Orleans.Client
-nuget Microsoft.AspNetCore.App
-nuget Microsoft.AspNetCore.StaticFiles
-nuget Microsoft.AspNetCore.Authentication.JwtBearer
-nuget TaskBuilder.fs
-nuget Giraffe
-nuget Hopac
-nuget Http.fs
-nuget Thoth.Json.Net
+group Server
+    source https://www.nuget.org/api/v2
+    nuget FSharp.Core
+    nuget Giraffe
+    nuget Microsoft.AspNetCore.StaticFiles
+    nuget Microsoft.AspNetCore.Authentication.JwtBearer
+    nuget TaskBuilder.fs
+    nuget Hopac
+    nuget Http.fs
+    nuget Thoth.Json.Net
