@@ -1,8 +1,6 @@
 namespace Feblr.Attrs
 
-open System
-
-open Feblr.Attrs.Engine.Host
+open Feblr.Attrs.Engine
 
 module OAuth =
     open Hopac

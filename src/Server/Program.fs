@@ -1,5 +1,6 @@
 ﻿open System
 open System.IO
+open Microsoft.Extensions.Hosting
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
@@ -13,8 +14,8 @@ open Feblr.Attrs.OAuth
 open Hopac
 
 open Orleans
+open Orleans.Hosting
 open Feblr.Attrs.Engine
-open Feblr.Attrs.Engine.Host
 
 module View =
     open GiraffeViewEngine
@@ -82,7 +83,7 @@ module Handler =
                 | _ ->
                     let clusterClient = ctx.GetService<IClusterClient>()
                     let openId = Guid.Parse (openId)
-                    let clientGrain = clusterClient.GetGrain<Host.IClientGrain>(openId)
+                    let clientGrain = clusterClient.GetGrain<IClientGrain>(openId)
                     let! apps = clientGrain.QueryApps ()
                     let view = View.indexView { oauthCfg with scopeName = "user.apps"; state = "user.apps" } apps
                     return! htmlView view next ctx
@@ -120,8 +121,7 @@ module Handler =
                             | Ok apps ->
                                 let clusterClient = ctx.GetService<IClusterClient>()
                                 let openId = Guid.Parse (ticket.open_id)
-                                let clientGrain = clusterClient.GetGrain<Host.IClientGrain>(openId)
-                                let! res = clientGrain.AddApps apps
+                                let clientGrain = clusterClient.GetGrain<IClientGrain>(openId)
                                 return! redirectTo false "/" next ctx
                             | _ ->
                                 return! redirectTo false "/" next ctx
@@ -137,8 +137,7 @@ module Handler =
                 let openIdStr = ctx.Session.GetString "open_id"
                 let clusterClient = ctx.GetService<IClusterClient>()
                 let openId = Guid.Parse (openIdStr)
-                let appGrain = clusterClient.GetGrain<Host.IAppGrain>(openId, appId.ToString())
-                let! users = appGrain.QueryUsers ()
+                let appGrain = clusterClient.GetGrain<IAppGrain>(openId, appId.ToString())
                 return! redirectTo false "/code" next ctx
             }
 
@@ -162,16 +161,14 @@ let configureApp (app : IApplicationBuilder) =
     app.UseSession() |> ignore
     app.UseGiraffe webApp
 
-let configureServices (client: IClusterClient) =
-    fun (services : IServiceCollection) ->
-        services.AddSingleton<IClusterClient>(client) |> ignore
-        services.AddDistributedMemoryCache() |> ignore
-        services.AddSession (fun options ->
-            options.IdleTimeout <- TimeSpan.FromSeconds (60.0 * 60.0 * 24.0)
-            options.Cookie.HttpOnly <- true
-            options.Cookie.IsEssential <- true
-        ) |> ignore
-        services.AddGiraffe() |> ignore
+let configureServices (services : IServiceCollection) =
+    services.AddDistributedMemoryCache() |> ignore
+    services.AddSession (fun options ->
+        options.IdleTimeout <- TimeSpan.FromSeconds (60.0 * 60.0 * 24.0)
+        options.Cookie.HttpOnly <- true
+        options.Cookie.IsEssential <- true
+    ) |> ignore
+    services.AddGiraffe() |> ignore
 
 let configureLogging (builder : ILoggingBuilder) =
     // Set a logging filter (optional)
@@ -184,25 +181,33 @@ let configureLogging (builder : ILoggingBuilder) =
            // Add additional loggers if wanted...
     |> ignore
 
+
 [<EntryPoint>]
 let main _ =
-    let host = Host.start ()
-    let client = Client.start ()
+    let host =
+        HostBuilder()
+            .ConfigureWebHostDefaults(fun webHostBuilder ->
+                let contentRoot = Directory.GetCurrentDirectory()
+                let webRoot     = Path.Combine(contentRoot, "WebRoot")
+                webHostBuilder
+                    .UseKestrel()
+                    .UseContentRoot(contentRoot)
+                    .UseWebRoot(webRoot)
+                    .UseUrls("http://localhost:6060")  
+                    .Configure(Action<IApplicationBuilder> configureApp)
+                    .ConfigureServices(configureServices)
+                    .ConfigureLogging(configureLogging)
+                    |> ignore
+            )
+            .UseOrleans(fun siloBuilder ->
+                let assembly = typeof<IClientGrain>.Assembly
+                siloBuilder
+                    .UseLocalhostClustering()
+                    .ConfigureApplicationParts(fun parts -> parts.AddApplicationPart(assembly).WithCodeGeneration() |> ignore)
+                    |> ignore
+            )
+            .Build()
 
-    let contentRoot = Directory.GetCurrentDirectory()
-    let webRoot     = Path.Combine(contentRoot, "WebRoot")
-    WebHostBuilder()
-        .UseKestrel()
-        .UseContentRoot(contentRoot)
-        .UseWebRoot(webRoot)
-        .UseUrls("http://localhost:6060")  
-        .Configure(Action<IApplicationBuilder> configureApp)
-        .ConfigureServices(configureServices client)
-        .ConfigureLogging(configureLogging)
-        .Build()
-        .Run()
-
-    Client.stop client
-    Host.stop host
+    host.Run()
 
     0
