@@ -12,9 +12,4 @@ group Server
     source https://www.nuget.org/api/v2
     nuget FSharp.Core
     nuget Giraffe
-    nuget Microsoft.AspNetCore.StaticFiles
-    nuget Microsoft.AspNetCore.Authentication.JwtBearer
-    nuget TaskBuilder.fs
-    nuget Hopac
-    nuget Http.fs
-    nuget Thoth.Json.Net
+    nuget Thoth.Json.Giraffe

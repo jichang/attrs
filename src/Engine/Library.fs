@@ -1,7 +1,16 @@
-﻿namespace Feblr.Attrs.Engine
+﻿module Feblr.Attrs.Engine
 
 open Orleans
 open System.Threading.Tasks
+open FSharp.Control.Tasks.V2.ContextInsensitive
+
+type Flag =
+    { key: string
+      value: bool }
+
+type Prop =
+    { key: string
+      value: string }
 
 type User =
     { id: int64
@@ -42,7 +51,8 @@ type Rule =
         else false
 
 type Feature =
-    { key: string
+    { id: int64
+      key: string
       value: bool
       rules: Rule list }
 
@@ -51,7 +61,7 @@ type Feature =
 
 
 type IUserGrain =
-    inherit Orleans.IGrainWithGuidCompoundKey
+    inherit Orleans.IGrainWithIntegerKey
 
     abstract Query: unit -> Task<User>
     abstract UpdateFlag: string -> bool -> Task<bool>
@@ -68,32 +78,40 @@ type UserGrain(id: int64) =
     interface IUserGrain with
 
         member __.Query(): Task<User> =
-            Task.FromResult
-                { id = id
-                  flags = flags
-                  props = props }
+            task {
+                let user =
+                    { id = id
+                      flags = flags
+                      props = props }
+                return user
+            }
 
+        member __.UpdateFlag (key: string) (value: bool) =
+            task {
+                flags <- Map.add key value flags
+                return true
+            }
 
-        member __.UpdateFlag (key: string) (value: bool): Task<bool> =
-            flags <- Map.add key value flags
-            Task.FromResult true
+        member __.QueryFlag(key: string): Task<bool option> = task { return Map.tryFind key flags }
 
-        member __.QueryFlag(key: string): Task<bool option> = Map.tryFind key flags |> Task.FromResult
+        member __.UpdateProp (key: string) (value: string) =
+            task {
+                props <- Map.add key value props
+                return true
+            }
 
-        member __.UpdateProp (key: string) (value: string): Task<bool> =
-            props <- Map.add key value props
-            Task.FromResult true
-
-        member __.QueryProp(key: string): Task<string option> = Map.tryFind key props |> Task.FromResult
+        member __.QueryProp(key: string): Task<string option> = task { return Map.tryFind key props }
 
 type IAppGrain =
-    inherit Orleans.IGrainWithGuidKey
+    inherit Orleans.IGrainWithIntegerKey
 
+    abstract QueryFeatures: unit -> Task<Feature list>
     abstract AddFeature: Feature -> Task<bool>
-    abstract DelFeature: Feature -> Task<bool>
-    abstract CheckFeature: int64 -> string -> Task<bool>
+    abstract DelFeature: int64 -> Task<bool>
+    abstract CheckFeature: int64 -> int64 -> Task<bool>
 
     abstract AddUser: int64 -> Task<bool>
+    abstract QueryUser: int64 -> Task<User option>
     abstract DelUser: int64 -> Task<bool>
 
 type AppGrain() =
@@ -104,42 +122,65 @@ type AppGrain() =
 
     interface IAppGrain with
 
+        member __.QueryFeatures() = task { return features }
+
         member __.AddFeature feature =
-            match List.tryFind (fun _feature -> _feature.key = feature.key) features with
-            | Some _ -> Task.FromResult false
-            | None ->
-                features <- List.append [ feature ] features
-                Task.FromResult true
+            task {
+                match List.tryFind (fun _feature -> _feature.key = feature.key) features with
+                | Some _ -> return false
+                | None ->
+                    features <- List.append [ feature ] features
+                    return true
+            }
 
-        member __.DelFeature feature =
-            match List.tryFind (fun _feature -> _feature.key = feature.key) features with
-            | Some _ -> Task.FromResult false
-            | None ->
-                features <- List.append [ feature ] features
-                Task.FromResult true
+        member __.DelFeature featureId =
+            task {
+                match List.tryFind (fun feature -> feature.id = featureId) features with
+                | Some _ -> return false
+                | None ->
+                    features <- List.filter (fun feature -> feature.id <> featureId) features
+                    return true
+            }
 
-        member __.CheckFeature userId featureKey =
-            match List.tryFind (fun feature -> feature.key = featureKey) features with
-            | Some feature -> feature.Check userId |> Task.FromResult
-            | None -> Task.FromResult false
+        member __.CheckFeature featureId userId =
+            task {
+                match List.tryFind (fun feature -> feature.id = featureId) features with
+                | Some feature -> return feature.Check userId
+                | None -> return false
+            }
 
         member __.AddUser userId =
-            match List.tryFind (fun _userId -> _userId = userId) userIds with
-            | Some _ -> Task.FromResult false
-            | None ->
-                userIds <- List.append [ userId ] userIds
-                Task.FromResult true
+            task {
+                match List.tryFind (fun _userId -> _userId = userId) userIds with
+                | Some _ -> return false
+                | None ->
+                    userIds <- List.append [ userId ] userIds
+                    return true
+            }
+
+        member this.QueryUser userId =
+            let trainFactory = this.GrainFactory
+            task {
+                match List.tryFind (fun _userId -> _userId = userId) userIds with
+                | Some _ ->
+                    let userGrain = trainFactory.GetGrain<IUserGrain>(userId)
+                    let! user = userGrain.Query()
+                    return Some user
+                | None -> return None
+            }
 
         member __.DelUser userId =
-            userIds <- List.filter (fun _userId -> _userId <> userId) userIds
-            Task.FromResult true
+            task {
+                userIds <- List.filter (fun _userId -> _userId <> userId) userIds
+                return true
+            }
 
 type IClientGrain =
-    inherit Orleans.IGrainWithGuidKey
+    inherit Orleans.IGrainWithIntegerKey
 
     abstract QueryApps: unit -> Task<App list>
     abstract AddApp: App -> Task<bool>
-    abstract DelApp: App -> Task<bool>
+    abstract DelApp: int64 -> Task<bool>
 
 type ClientGrain() =
     inherit Grain()
@@ -148,18 +189,22 @@ type ClientGrain() =
 
     interface IClientGrain with
 
-        member __.QueryApps() = Task.FromResult apps
+        member __.QueryApps() = task { return apps }
 
         member __.AddApp app =
-            match List.tryFind (fun (_app: App) -> _app.id = app.id) apps with
-            | Some _ -> Task.FromResult false
-            | None ->
-                apps <- List.append [ app ] apps
-                Task.FromResult true
+            task {
+                match List.tryFind (fun (_app: App) -> _app.id = app.id) apps with
+                | Some _ -> return false
+                | None ->
+                    apps <- List.append [ app ] apps
+                    return true
+            }
 
-        member __.DelApp app =
-            match List.tryFind (fun (_app: App) -> _app.id = app.id) apps with
-            | Some _ ->
-                apps <- List.filter (fun _app -> _app.id <> app.id) apps
-                Task.FromResult true
-            | None -> Task.FromResult false
+        member __.DelApp appId =
+            task {
+                match List.tryFind (fun (_app: App) -> _app.id = appId) apps with
+                | Some _ ->
+                    apps <- List.filter (fun _app -> _app.id <> appId) apps
+                    return true
+                | None -> return false
+            }
